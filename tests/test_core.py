@@ -123,4 +123,16 @@ class PanelTests(unittest.TestCase):
         self.assertEqual(response.status_code,200)
         self.assertEqual(self.client.get('/api/session').status_code,401)
 
+class SetupTests(unittest.TestCase):
+    def test_domain_validation_and_dns_target(self):
+        sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'deploy'))
+        from configure import validate_domain
+        self.assertEqual(validate_domain('VPN.Example.com.','51.20.157.134',resolve=False),'vpn.example.com')
+        for value in ['https://vpn.example.com','bad.example;id','a\n.example.com','51.20.157.134','a..com','-x.example.com','*.example.com']:
+            with self.assertRaises(ValueError):validate_domain(value,'51.20.157.134',resolve=False)
+        with patch('configure.socket.getaddrinfo',return_value=[(2,1,6,'',('51.20.157.134',80))]):
+            self.assertEqual(validate_domain('vpn.example.com','51.20.157.134'),'vpn.example.com')
+        with patch('configure.socket.getaddrinfo',return_value=[(2,1,6,'',('192.0.2.1',80))]):
+            with self.assertRaises(ValueError):validate_domain('vpn.example.com','51.20.157.134')
+
 if __name__=='__main__':unittest.main()

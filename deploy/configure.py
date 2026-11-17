@@ -8,6 +8,7 @@ import os
 import re
 import secrets
 import shutil
+import socket
 import subprocess
 import sys
 import time
@@ -19,6 +20,43 @@ from common import STATE,EXPORTS,PROTOCOLS,database,event,get,hash_password,init
 
 ROOT=Path('/opt/separ')
 CFG=Path('/etc/separ')
+
+def validate_domain(value,ip,resolve=True):
+    value=value.lower().rstrip('.')
+    if len(value)>253 or '.' not in value or not all(re.fullmatch(r'[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?',p) for p in value.split('.')):
+        raise ValueError('Invalid DNS domain; use an ASCII hostname, without https:// or a port')
+    try:
+        ipaddress.ip_address(value)
+    except ValueError:
+        pass
+    else:
+        raise ValueError('Use --server-ip for an IP address')
+    if resolve:
+        addresses={item[4][0] for item in socket.getaddrinfo(value,80,type=socket.SOCK_STREAM)}
+        if addresses!={ip}:
+            raise ValueError('Domain must resolve only to the server IPv4; remove proxying and unrelated A/AAAA records')
+    return value
+
+def panel_domain(domain,ip,acme):
+    domain=validate_domain(domain,ip)
+    write('/etc/nginx/sites-available/sirgsm-domain',f'''server {{
+ listen 80;
+ server_name {domain};
+ location /.well-known/acme-challenge/ {{ root {acme}; }}
+ location / {{ return 404; }}
+}}
+''',0o644)
+    enabled=Path('/etc/nginx/sites-enabled/sirgsm-domain')
+    if not enabled.exists():enabled.symlink_to('/etc/nginx/sites-available/sirgsm-domain')
+    run('nginx','-t');run('systemctl','reload','nginx')
+    run('/opt/sirgsm-certbot/bin/certbot','certonly','--webroot','-w',str(acme),'-d',domain,'--cert-name','sirgsm-domain','--non-interactive','--agree-tos','--register-unsafely-without-email')
+    panel=Path('/etc/nginx/sites-available/separ-panel').read_text()
+    panel=panel.replace(f'server_name {ip};',f'server_name {domain};').replace('/live/sirgsm-ip/','/live/sirgsm-domain/')
+    current=Path('/etc/nginx/sites-available/sirgsm-domain').read_text()
+    write('/etc/nginx/sites-available/sirgsm-domain',current+panel,0o644)
+    run('nginx','-t');run('systemctl','reload','nginx')
+    write('/etc/letsencrypt/renewal-hooks/deploy/sirgsm-domain','#!/bin/sh\n[ "$RENEWED_LINEAGE" != /etc/letsencrypt/live/sirgsm-domain ] || systemctl reload nginx\n',0o700)
+    write(CFG/'panel-domain',domain+'\n')
 
 def run(*args,**kwargs):
     result=subprocess.run(args,text=True,capture_output=True,check=True,**kwargs)
@@ -232,14 +270,21 @@ def main():
     configured_at=now()
     parser=argparse.ArgumentParser()
     parser.add_argument('--server-ip',required=True)
+    parser.add_argument('--domain')
+    parser.add_argument('--openvpn-transport',choices=['tcp','udp'])
     args=parser.parse_args();ip=str(ipaddress.IPv4Address(args.server_ip))
     if not ipaddress.ip_address(ip).is_global:raise ValueError('A public IPv4 address is required')
     if os.geteuid()!=0:raise PermissionError('Run as root')
+    domain=args.domain or ((CFG/'panel-domain').read_text().strip() if (CFG/'panel-domain').exists() else '')
+    if domain:domain=validate_domain(domain,ip)
+    transport=args.openvpn_transport or ((CFG/'openvpn-transport').read_text().strip() if (CFG/'openvpn-transport').exists() else 'tcp')
+    if transport not in ('tcp','udp'):raise ValueError('Invalid OpenVPN transport')
     os.umask(0o027)
     iface=run('ip','-4','route','show','default').split(' dev ')[1].split()[0]
     if not re.fullmatch('[A-Za-z0-9_.:-]{1,15}',iface):raise ValueError('Invalid network interface')
     if subprocess.run(['id','separ'],capture_output=True).returncode:run('useradd','--system','--home','/var/lib/separ','--shell','/usr/sbin/nologin','separ')
     CFG.mkdir(mode=0o700,exist_ok=True);CFG.chmod(0o700)
+    write(CFG/'openvpn-transport',transport+'\n')
     for p in [STATE,EXPORTS]:p.mkdir(exist_ok=True);shutil.chown(p,group='separ');p.chmod(0o2770 if p==STATE else 0o2750)
     # Upgrade legacy export layout, but never leave root-generated secrets web-writable.
     if (STATE/'exports').is_dir():
@@ -288,7 +333,7 @@ def main():
             for p in folder.iterdir():shutil.chown(p,group='separ');p.chmod(0o640)
     pki();ike_pki(ip)
     openvpn=f'''port {ports['openvpn']}
-proto tcp-server
+proto {'udp' if transport=='udp' else 'tcp-server'}
 dev tun-amazon
 topology subnet
 server 10.83.0.0 255.255.255.0
@@ -307,6 +352,7 @@ push "redirect-gateway def1 ipv6 bypass-dhcp"
 push "block-ipv6"
 push "dhcp-option DNS 1.1.1.1"
 push "dhcp-option DNS 8.8.8.8"
+{'tcp-nodelay' if transport=='tcp' else 'explicit-exit-notify 1'}
 keepalive 10 120
 persist-key
 persist-tun
@@ -325,7 +371,7 @@ client-disconnect /opt/separ/backend/openvpn_event.py
     write('/etc/openvpn/server/amazon.conf',openvpn)
     write(CFG/'openvpn-client-template',f'''client
 dev tun
-proto tcp-client
+proto {'udp' if transport=='udp' else 'tcp-client'}
 remote {ip} {ports['openvpn']}
 setenv FRIENDLY_NAME SirGSM
 resolv-retry infinite
@@ -435,6 +481,7 @@ systemctl try-restart xray
     if not enabled.exists():enabled.symlink_to('/etc/nginx/sites-available/separ-panel')
     run('nginx','-t');run('systemctl','reload','nginx')
     run('systemctl','daemon-reload')
+    if domain:panel_domain(domain,ip,acme)
     run('systemctl','restart','strongswan','openvpn-server@amazon')
     run('systemctl','enable','--now','separ-worker','separ-web','sirgsm-mtg','sirgsm-cert-renew.timer','sirgsm-crl.timer','sirgsm-ike-cert.timer')
     run('systemctl','restart','separ-worker','separ-web')
@@ -449,6 +496,7 @@ systemctl try-restart xray
             if code=='401':ready=True;break
     if not ready:raise RuntimeError('Panel readiness check failed: '+str(errors))
     print(f'SirGSM VPN Panel 2: https://{ip}:8443')
+    if domain:print(f'Panel domain: https://{domain}:8443')
     print('Fresh-install credentials: /root/sirgsm-admin.txt (existing credentials are preserved on upgrades).')
 
 if __name__=='__main__': main()

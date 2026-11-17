@@ -4,18 +4,30 @@ set -Eeuo pipefail
 umask 027
 LANGUAGE=en
 SERVER_IP=${SIRGSM_SERVER_IP:-}
+DOMAIN=${SIRGSM_DOMAIN:-}
+OPENVPN_TRANSPORT=${SIRGSM_OPENVPN_TRANSPORT:-}
 UPGRADE=0
-RELEASE=v0.1.1
+RELEASE=v0.1.2
 while (($#)); do
  case "$1" in
   --lang) LANGUAGE=${2:?}; shift 2 ;;
   --server-ip) SERVER_IP=${2:?}; shift 2 ;;
+  --domain) DOMAIN=${2:?}; shift 2 ;;
+  --openvpn-transport) OPENVPN_TRANSPORT=${2:?}; shift 2 ;;
   --upgrade) UPGRADE=1; shift ;;
-  --help) echo 'Usage: sudo bash install.sh [--lang en|fa] [--server-ip PUBLIC_IPV4] [--upgrade]'; exit 0 ;;
+  --help) echo 'Usage: sudo bash install.sh [--lang en|fa] [--server-ip PUBLIC_IPV4] [--domain vpn.example.com] [--openvpn-transport tcp|udp] [--upgrade]'; exit 0 ;;
   *) echo "Unknown argument: $1" >&2; exit 2 ;;
  esac
 done
+if [[ -z "$DOMAIN" && $UPGRADE == 0 && -t 0 ]]; then
+ if [[ "$LANGUAGE" == fa ]]; then
+  read -r -p 'دامنهٔ پنل (اختیاری؛ Enter برای استفاده از IP): ' DOMAIN
+ else
+  read -r -p 'Panel domain (optional; Enter to use the IP): ' DOMAIN
+ fi
+fi
 [[ "$LANGUAGE" == en || "$LANGUAGE" == fa ]] || exit 2
+[[ -z "$OPENVPN_TRANSPORT" || "$OPENVPN_TRANSPORT" == tcp || "$OPENVPN_TRANSPORT" == udp ]] || exit 2
 say(){ if [[ "$LANGUAGE" == fa ]]; then printf '%s\n' "$2"; else printf '%s\n' "$1"; fi; }
 [[ $EUID == 0 ]] || { say 'Run this installer with sudo.' 'نصب‌کننده را با sudo اجرا کنید.'; exit 1; }
 . /etc/os-release
@@ -121,8 +133,11 @@ MTG_BIN=$(find "$TASK_TMP/mtg" -type f -name mtg -print -quit)
 install -m 755 "$MTG_BIN" /usr/local/bin/mtg
 if command -v ufw >/dev/null && ufw status | head -n1 | grep -q 'Status: active'; then
  for port in 80 443 8443 2053 2083 2087 2096 8388; do ufw allow "$port/tcp"; done
- for port in 500 4500 8388; do ufw allow "$port/udp"; done
+ for port in 500 4500 8388 2053; do ufw allow "$port/udp"; done
 fi
 say 'Configuring VPN services and public IP certificate…' 'در حال تنظیم سرویس‌ها و گواهی معتبر IP…'
-/opt/sirgsm-runtime/bin/python /opt/separ/deploy/configure.py --server-ip "$SERVER_IP"
+CONFIG_ARGS=(--server-ip "$SERVER_IP")
+[[ -z "$DOMAIN" ]] || CONFIG_ARGS+=(--domain "$DOMAIN")
+[[ -z "$OPENVPN_TRANSPORT" ]] || CONFIG_ARGS+=(--openvpn-transport "$OPENVPN_TRANSPORT")
+/opt/sirgsm-runtime/bin/python /opt/separ/deploy/configure.py "${CONFIG_ARGS[@]}"
 say 'Ready. Credentials are in /root/sirgsm-admin.txt. Allow the documented ports in your cloud firewall.' 'آماده است. اطلاعات ورود در /root/sirgsm-admin.txt قرار دارد. پورت‌های مستندشده را در فایروال ابری باز کنید.'

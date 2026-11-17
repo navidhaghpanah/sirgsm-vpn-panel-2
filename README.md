@@ -15,7 +15,7 @@ English/Persian interface with light and dark themes.
 | Service | Default port | User accounting |
 | --- | --- | --- |
 | VLESS + REALITY + Vision | TCP 443 | Shared quota |
-| OpenVPN, certificate authentication | TCP 2053 | Shared quota |
+| OpenVPN, certificate authentication | TCP or UDP 2053 | Shared quota |
 | IKEv2, EAP-MSCHAPv2 | UDP 500 / 4500 | Shared quota |
 | Shadowsocks 2022, AES-256-GCM | TCP/UDP 8388 | Shared quota |
 | Trojan + verified TLS | TCP 2087 | Shared quota |
@@ -37,6 +37,26 @@ reachability through every carrier, censorship system or cloud firewall.
 
 ## Install
 
+The header's **Change admin credentials** button changes the administrator username
+and password after checking the current password. Every existing session is signed
+out. The initial credentials file is a bootstrap record; it does not reveal later passwords.
+
+For an optional panel hostname, point its A record directly to the server IPv4,
+disable DNS proxying, and remove unrelated A/AAAA records. Fresh interactive setup
+asks for a domain; unattended installs accept `--domain vpn.example.com` (or
+`SIRGSM_DOMAIN`). The panel then has a separate automatically renewed domain
+certificate at `https://vpn.example.com:8443`; IP access and the VPN IP certificates
+remain available. Domain names do not hide the server IP. Upgrades preserve the hostname.
+
+Use `--openvpn-transport udp` to choose UDP, or `tcp` for TCP. TCP remains the
+default on fresh installs; upgrades preserve the chosen transport. Allow UDP 2053
+in both cloud and host firewalls before selecting UDP. Existing installations can
+switch with `sudo /opt/sirgsm-runtime/bin/python /opt/separ/deploy/change_openvpn_transport.py udp`
+(use `tcp` to revert). This replaces the single OpenVPN listener; download and
+reimport updated profiles. Certificates, quotas, expiry and one concurrent
+connection per certificate still apply. UDP can avoid TCP tunnel stalls on some
+networks, but carrier reachability and speed require testing on the actual device.
+
 Use a **fresh Ubuntu 24.04 LTS** server (amd64 or arm64), a public IPv4 address,
 root/sudo access and inbound access to the ports above. At least 1 GB RAM and
 2 GB free disk space are recommended for installation/building. Allow TCP 80 in
@@ -46,7 +66,7 @@ Review the installer before executing software as root.
 One-line English installer:
 
 ```bash
-sudo bash -c 'set -e; f=$(mktemp); curl -fsSL https://raw.githubusercontent.com/navidhaghpanah/sirgsm-vpn-panel-2/v0.1.1/install.sh -o "$f"; bash "$f" --lang en; rm -f -- "$f"'
+sudo bash -c 'set -e; f=$(mktemp); curl -fsSL https://raw.githubusercontent.com/navidhaghpanah/sirgsm-vpn-panel-2/v0.1.2/install.sh -o "$f"; bash "$f" --lang en; rm -f -- "$f"'
 ```
 
 The download finishes successfully before execution; the temporary file is

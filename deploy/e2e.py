@@ -103,7 +103,9 @@ def openvpn_test(user,folder,ip):
         second_log=folder/'openvpn-second.log'
         second=subprocess.Popen(['ip','netns','exec',ns,'openvpn','--config',str(path),'--dev','tun-qa2','--route-noexec','--ifconfig-noexec','--remap-usr1','SIGTERM','--log',str(second_log)],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
         wait_for(lambda:second_log.exists() and 'Initialization Sequence Completed' in second_log.read_text(),20)
-        wait_for(lambda:proc.poll() is not None,15)
+        # UDP has no transport close notification: the replaced process can stay
+        # alive until its keepalive expires. Assert the server's active sessions.
+        if 'proto tcp-client' in profile:wait_for(lambda:proc.poll() is not None,15)
         from worker import management
         rows=[line for line in management('status 3').splitlines() if line.startswith('CLIENT_LIST\t'+user['cn']+'\t')]
         assert len(rows)==1,'A certificate must only have one simultaneous connection'
