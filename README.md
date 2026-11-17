@@ -8,7 +8,7 @@ A self-hosted, bilingual administration panel for one Ubuntu VPN server. Manage
 per-user credentials, shared traffic quotas and expiry dates from a responsive
 English/Persian interface with light and dark themes.
 
-![English dark interface](docs/screenshots/en-dark.png)
+![English dark interface](docs/screenshots/en-dark.jpg)
 
 ## Services
 
