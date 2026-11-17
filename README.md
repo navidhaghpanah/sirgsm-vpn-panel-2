@@ -2,9 +2,13 @@
 
 [فارسی](README.fa.md) · Built by **NH** · Sponsored by [sirgsm.ir](https://sirgsm.ir)
 
+[![Verify](https://github.com/navidhaghpanah/sirgsm-vpn-panel-2/actions/workflows/ci.yml/badge.svg)](https://github.com/navidhaghpanah/sirgsm-vpn-panel-2/actions/workflows/ci.yml)
+
 A self-hosted, bilingual administration panel for one Ubuntu VPN server. Manage
 per-user credentials, shared traffic quotas and expiry dates from a responsive
 English/Persian interface with light and dark themes.
+
+![English dark interface](docs/screenshots/en-dark.png)
 
 ## Services
 
