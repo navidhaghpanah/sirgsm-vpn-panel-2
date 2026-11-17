@@ -183,10 +183,10 @@ WantedBy=multi-user.target
     write('/etc/systemd/system/openvpn-server@amazon.service.d/network.conf','[Service]\nExecStartPre=+/usr/local/sbin/openvpn-amazon-network\n',0o644)
     write('/etc/systemd/system/strongswan.service.d/separ.conf','[Service]\nExecStartPre=/usr/local/sbin/separ-ike-network\n',0o644)
     write('/etc/systemd/system/sirgsm-cert-renew.service','''[Unit]
-Description=Renew SirGSM public IP TLS certificate
+Description=Renew SirGSM public IP and optional domain TLS certificates
 [Service]
 Type=oneshot
-ExecStart=/opt/sirgsm-certbot/bin/certbot renew --cert-name sirgsm-ip --quiet --no-random-sleep-on-renew
+ExecStart=/opt/sirgsm-certbot/bin/certbot renew --quiet --no-random-sleep-on-renew
 ''',0o644)
     write('/etc/systemd/system/sirgsm-cert-renew.timer','''[Unit]
 Description=Check six-day IP certificate twice daily
