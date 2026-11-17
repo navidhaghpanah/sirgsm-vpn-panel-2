@@ -1,0 +1,1 @@
+{"name":"sirgsm-vpn-panel-2","version":"0.1.0","private":true,"type":"module","scripts":{"dev":"vite --host 127.0.0.1","build":"vite build"},"dependencies":{"@fontsource/vazirmatn":"^5.2.5","lucide-react":"^0.468.0","react":"^19.2.0","react-dom":"^19.2.0"},"devDependencies":{"vite":"^7.2.0"}}
