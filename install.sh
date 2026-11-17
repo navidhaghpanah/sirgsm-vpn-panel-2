@@ -5,7 +5,7 @@ umask 027
 LANGUAGE=en
 SERVER_IP=${SIRGSM_SERVER_IP:-}
 UPGRADE=0
-RELEASE=v0.1.0
+RELEASE=v0.1.1
 while (($#)); do
  case "$1" in
   --lang) LANGUAGE=${2:?}; shift 2 ;;

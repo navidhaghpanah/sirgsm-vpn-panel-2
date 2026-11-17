@@ -59,7 +59,7 @@ def authenticate(request):
         row=db.execute('SELECT * FROM sessions WHERE token=? AND expires>?',
                        (hashlib.sha256(token.encode()).hexdigest(),int(time.time()))).fetchone()
     if not row: raise HTTPException(401,'ابتدا وارد شوید')
-    if request.method not in ('GET','HEAD') and not secrets.compare_digest(request.headers.get('x-csrf-token',''),row['csrf']):
+    if request.method not in ('GET','HEAD') and not secrets.compare_digest(request.headers.get('x-csrf-token','').encode(),row['csrf'].encode()):
         raise HTTPException(403,'درخواست معتبر نیست')
     return row
 
@@ -93,7 +93,7 @@ def login(body: Login,request: Request,response: Response):
         attempt=db.execute('SELECT * FROM login_attempts WHERE ip=?',(ip,)).fetchone()
         if attempt and attempt['count']>=8 and attempt['until']>instant:
             raise HTTPException(429,'چند دقیقه بعد دوباره تلاش کنید')
-        valid=secrets.compare_digest(body.username,get(db,'admin_user','admin')) and check_password(body.password,get(db,'admin_hash',''))
+        valid=secrets.compare_digest(body.username.encode(),get(db,'admin_user','admin').encode()) and check_password(body.password,get(db,'admin_hash',''))
         if not valid:
             count=attempt['count']+1 if attempt and attempt['until']>instant else 1
             db.execute('INSERT OR REPLACE INTO login_attempts VALUES(?,?,?)',(ip,count,instant+600))

@@ -44,6 +44,10 @@ class PanelTests(unittest.TestCase):
         self.assertEqual(response.headers['cache-control'],'no-store')
         self.assertIn("frame-ancestors 'none'",response.headers['content-security-policy'])
 
+    def test_unicode_invalid_username_is_rejected_without_server_error(self):
+        result=self.client.post('/api/login',json={'username':'نام‌کاربری','password':'wrong'})
+        self.assertEqual(result.status_code,401)
+
     def test_root_configuration_rejects_stored_directive_injection(self):
         valid={'reality':443,'openvpn':2053,'ikev2':'500 / 4500','shadowsocks':8388,'trojan':2087,'vmess':2083}
         self.assertEqual(common.validate_ports(valid),valid)

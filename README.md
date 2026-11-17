@@ -46,7 +46,7 @@ Review the installer before executing software as root.
 One-line English installer:
 
 ```bash
-sudo bash -c 'set -e; f=$(mktemp); curl -fsSL https://raw.githubusercontent.com/navidhaghpanah/sirgsm-vpn-panel-2/v0.1.0/install.sh -o "$f"; bash "$f" --lang en; rm -f -- "$f"'
+sudo bash -c 'set -e; f=$(mktemp); curl -fsSL https://raw.githubusercontent.com/navidhaghpanah/sirgsm-vpn-panel-2/v0.1.1/install.sh -o "$f"; bash "$f" --lang en; rm -f -- "$f"'
 ```
 
 The download finishes successfully before execution; the temporary file is
