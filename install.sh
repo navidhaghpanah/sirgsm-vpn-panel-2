@@ -6,16 +6,18 @@ LANGUAGE=en
 SERVER_IP=${SIRGSM_SERVER_IP:-}
 DOMAIN=${SIRGSM_DOMAIN:-}
 OPENVPN_TRANSPORT=${SIRGSM_OPENVPN_TRANSPORT:-}
+TCP_CONGESTION=${SIRGSM_TCP_CONGESTION:-auto}
 UPGRADE=0
-RELEASE=v0.1.2
+RELEASE=v0.1.3
 while (($#)); do
  case "$1" in
   --lang) LANGUAGE=${2:?}; shift 2 ;;
   --server-ip) SERVER_IP=${2:?}; shift 2 ;;
   --domain) DOMAIN=${2:?}; shift 2 ;;
   --openvpn-transport) OPENVPN_TRANSPORT=${2:?}; shift 2 ;;
+  --tcp-congestion) TCP_CONGESTION=${2:?}; shift 2 ;;
   --upgrade) UPGRADE=1; shift ;;
-  --help) echo 'Usage: sudo bash install.sh [--lang en|fa] [--server-ip PUBLIC_IPV4] [--domain vpn.example.com] [--openvpn-transport tcp|udp] [--upgrade]'; exit 0 ;;
+  --help) echo 'Usage: sudo bash install.sh [--lang en|fa] [--server-ip PUBLIC_IPV4] [--domain vpn.example.com] [--openvpn-transport tcp|udp] [--tcp-congestion auto|bbr|keep] [--upgrade]'; exit 0 ;;
   *) echo "Unknown argument: $1" >&2; exit 2 ;;
  esac
 done
@@ -28,6 +30,7 @@ if [[ -z "$DOMAIN" && $UPGRADE == 0 && -t 0 ]]; then
 fi
 [[ "$LANGUAGE" == en || "$LANGUAGE" == fa ]] || exit 2
 [[ -z "$OPENVPN_TRANSPORT" || "$OPENVPN_TRANSPORT" == tcp || "$OPENVPN_TRANSPORT" == udp ]] || exit 2
+[[ "$TCP_CONGESTION" == auto || "$TCP_CONGESTION" == bbr || "$TCP_CONGESTION" == keep ]] || exit 2
 say(){ if [[ "$LANGUAGE" == fa ]]; then printf '%s\n' "$2"; else printf '%s\n' "$1"; fi; }
 [[ $EUID == 0 ]] || { say 'Run this installer with sudo.' 'نصب‌کننده را با sudo اجرا کنید.'; exit 1; }
 . /etc/os-release
@@ -136,7 +139,7 @@ if command -v ufw >/dev/null && ufw status | head -n1 | grep -q 'Status: active'
  for port in 500 4500 8388 2053; do ufw allow "$port/udp"; done
 fi
 say 'Configuring VPN services and public IP certificate…' 'در حال تنظیم سرویس‌ها و گواهی معتبر IP…'
-CONFIG_ARGS=(--server-ip "$SERVER_IP")
+CONFIG_ARGS=(--server-ip "$SERVER_IP" --tcp-congestion "$TCP_CONGESTION")
 [[ -z "$DOMAIN" ]] || CONFIG_ARGS+=(--domain "$DOMAIN")
 [[ -z "$OPENVPN_TRANSPORT" ]] || CONFIG_ARGS+=(--openvpn-transport "$OPENVPN_TRANSPORT")
 /opt/sirgsm-runtime/bin/python /opt/separ/deploy/configure.py "${CONFIG_ARGS[@]}"

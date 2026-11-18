@@ -1,4 +1,5 @@
 import datetime as dt
+import base64
 import importlib
 import os
 import sys
@@ -123,7 +124,57 @@ class PanelTests(unittest.TestCase):
         self.assertEqual(response.status_code,200)
         self.assertEqual(self.client.get('/api/session').status_code,401)
 
+    def test_private_subscription_rotation_revocation_and_account_limits(self):
+        uid,_=self.user(protocols=['reality','openvpn'])
+        folder=common.EXPORTS/uid;folder.mkdir()
+        link='vless://fixture-only@192.0.2.1:443#fixture'
+        (folder/'reality.txt').write_text(link+'\n')
+        (folder/'openvpn.ovpn').write_text('fixture-only-profile\n')
+        with common.database() as db:db.execute('UPDATE users SET provisioned=1 WHERE id=?',(uid,))
+        guest=TestClient(app,base_url='https://testserver')
+        self.assertEqual(guest.post(f'/api/users/{uid}/share').status_code,401)
+        self.assertEqual(self.client.post(f'/api/users/{uid}/share').status_code,403)
+        share=self.client.post(f'/api/users/{uid}/share',headers=self.csrf).json()
+        path=share['subscription_path'];token=path.rsplit('/',1)[1]
+        result=guest.get(path)
+        self.assertEqual(result.status_code,200)
+        self.assertEqual(base64.b64decode(result.text).decode().strip(),link)
+        self.assertEqual(result.headers['cache-control'],'no-store')
+        self.assertEqual(result.headers['referrer-policy'],'no-referrer')
+        info=guest.get('/api/public/'+token).json()
+        for secret in ['password','uuid','cn','id']:self.assertNotIn(secret,info)
+        self.assertEqual(guest.get(f'/api/public/{token}/export/openvpn').text,'fixture-only-profile\n')
+        self.assertEqual(guest.get(f'/api/public/{token}/export/trojan').status_code,409)
+        with common.database() as db:db.execute('UPDATE users SET quota=100,used=101 WHERE id=?',(uid,))
+        self.assertEqual(guest.get(path).status_code,403)
+        self.assertEqual(guest.get(f'/api/public/{token}/export/openvpn').status_code,409)
+        with common.database() as db:db.execute('UPDATE users SET quota=0,expires=? WHERE id=?',('2000-01-01T00:00:00+00:00',uid))
+        self.assertEqual(guest.get(path).status_code,403)
+        with common.database() as db:db.execute('UPDATE users SET expires=NULL WHERE id=?',(uid,))
+        replacement=self.client.post(f'/api/users/{uid}/share',headers=self.csrf).json()
+        self.assertEqual(guest.get(path).status_code,404)
+        self.assertEqual(guest.get(replacement['subscription_path']).status_code,200)
+        self.client.delete(f'/api/users/{uid}/share',headers=self.csrf)
+        self.assertEqual(guest.get(replacement['subscription_path']).status_code,404)
+
 class SetupTests(unittest.TestCase):
+    def test_bbr_configuration_and_unsupported_kernel(self):
+        sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'deploy'))
+        import configure
+        with patch.object(configure,'run',side_effect=['','reno cubic bbr','','bbr']),patch.object(configure,'write') as write:
+            self.assertEqual(configure.configure_tcp_congestion(),'bbr')
+            self.assertEqual(write.call_count,2)
+            self.assertIn('net.ipv4.tcp_congestion_control=bbr',write.call_args_list[1].args[1])
+        with patch.object(configure,'run',side_effect=['','reno cubic']),patch.object(configure,'write') as write:
+            self.assertIsNone(configure.configure_tcp_congestion('auto'))
+            write.assert_not_called()
+        with patch.object(configure,'run',side_effect=['','reno cubic']),patch.object(configure,'write') as write:
+            with self.assertRaises(RuntimeError):configure.configure_tcp_congestion('bbr')
+            write.assert_not_called()
+        with patch.object(configure,'run') as run,patch.object(configure,'write') as write:
+            self.assertIsNone(configure.configure_tcp_congestion('keep'))
+            run.assert_not_called();write.assert_not_called()
+
     def test_domain_validation_and_dns_target(self):
         sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'deploy'))
         from configure import validate_domain

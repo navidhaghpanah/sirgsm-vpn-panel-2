@@ -12,6 +12,19 @@ English/Persian interface with light and dark themes.
 
 ## Services
 
+Each user row has a **Configs & subscription** button. It provides downloads for
+enabled protocols and controls for a private user page and a standard base64 Xray
+subscription (REALITY, Shadowsocks, Trojan, VMess). The bilingual user page shows
+shared usage/expiry, local QR codes, individual links and OpenVPN/IKEv2 downloads.
+OpenVPN and IKEv2 are not encoded as Xray subscription entries.
+
+Create a private link explicitly, copy it to the user, and rotate or revoke it from
+the same dialog. It is a bearer credential: anyone holding the link can obtain the
+user's enabled VPN credentials. Do not publish it. Disabled, expired and depleted
+accounts cannot fetch subscriptions or profiles; revoked links return 404.
+Subscription usage reports aggregate upload+download in the download field,
+matching the panel's shared meter. Public user pages expose no admin access.
+
 | Service | Default port | User accounting |
 | --- | --- | --- |
 | VLESS + REALITY + Vision | TCP 443 | Shared quota |
@@ -36,6 +49,15 @@ Shadowsocks, Trojan and WebSocket are deprecated. Installation does not guarante
 reachability through every carrier, censorship system or cloud firewall.
 
 ## Install
+
+Fresh installs and upgrades try to enable **BBR** for new server TCP connections
+and persist it across reboots. If the kernel cannot provide BBR, automatic mode
+keeps the current congestion setting and prints a notice. This is a server-wide
+TCP setting, not a guarantee of speed or carrier reachability. Choose
+`--tcp-congestion keep` to leave runtime and saved settings untouched, or
+`--tcp-congestion bbr` to fail installation if BBR cannot be enabled.
+The equivalent environment variable is `SIRGSM_TCP_CONGESTION=auto|bbr|keep`.
+Existing TCP connections must reconnect before they use the new setting.
 
 The header's **Change admin credentials** button changes the administrator username
 and password after checking the current password. Every existing session is signed
@@ -66,7 +88,7 @@ Review the installer before executing software as root.
 One-line English installer:
 
 ```bash
-sudo bash -c 'set -e; f=$(mktemp); curl -fsSL https://raw.githubusercontent.com/navidhaghpanah/sirgsm-vpn-panel-2/v0.1.2/install.sh -o "$f"; bash "$f" --lang en; rm -f -- "$f"'
+sudo bash -c 'set -e; f=$(mktemp); curl -fsSL https://raw.githubusercontent.com/navidhaghpanah/sirgsm-vpn-panel-2/v0.1.3/install.sh -o "$f"; bash "$f" --lang en; rm -f -- "$f"'
 ```
 
 The download finishes successfully before execution; the temporary file is

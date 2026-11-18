@@ -78,7 +78,8 @@ class SecurityHeaders:
             if message['type']=='http.response.start':
                 extra=[(b'x-content-type-options',b'nosniff'),(b'x-frame-options',b'DENY'),(b'referrer-policy',b'no-referrer'),
                   (b'content-security-policy',b"default-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'")]
-                if scope['path'].startswith('/api/'):extra.append((b'cache-control',b'no-store'))
+                if scope['path'].startswith(('/api/','/u/','/sub/')):
+                    extra.extend([(b'cache-control',b'no-store'),(b'x-robots-tag',b'noindex, nofollow, noarchive')])
                 message={**message,'headers':list(message.get('headers',[]))+extra}
             await send(message)
         await self.app(scope,receive,send_headers)
@@ -214,4 +215,6 @@ def export(uid: str,kind: str,request: Request):
     return FileResponse(path,filename=f'SirGSM-{row["name"]}-{kind}.{suffix}')
 
 dist=Path(os.environ.get('SEPAR_DIST','/opt/separ/frontend/dist'))
+from subscriptions import make_router
+app.include_router(make_router(authenticate,dist))
 if dist.is_dir(): app.mount('/',StaticFiles(directory=dist,html=True),name='frontend')

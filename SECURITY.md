@@ -41,6 +41,16 @@ through their GitHub profile to arrange a private channel before disclosure.
 
 ## Explicit limitations
 
+- Private user-page/subscription URLs are bearer credentials. Tokens are randomly
+  generated with 256 bits of entropy and stored alongside other private account
+  data in the panel database so the administrator can retrieve/share them again.
+  Do not publish URLs or QR codes. Rotation/revocation invalidates the old URL;
+  it does not revoke profiles already downloaded. Disable the account to stop
+  its VPN access. User endpoints enforce the account's current status and enabled
+  protocols, use no-store/no-referrer/noindex, and the managed nginx/Uvicorn
+  configuration disables access logs to avoid recording bearer paths. Third-party
+  proxies and access log collectors must also avoid recording these URLs.
+
 - The admin listener is public where your firewall permits. Restrict TCP 8443 to
   trusted source networks or an SSH tunnel when appropriate. There is no MFA or
   multi-admin/tenant isolation in this initial release.

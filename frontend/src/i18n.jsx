@@ -1,5 +1,6 @@
 import React,{createContext,useContext,useState} from 'react';
 const dictionary={
+ 'کانفیگ‌ها و اشتراک':'Configs & subscription',
  'منوی اصلی':'Main navigation','لینک REALITY':'REALITY link',
  'لینک پروکسی تلگرام':'Telegram proxy link','آدرس دامنه‌ای':'Domain address','آدرس IP مستقیم':'Direct IP address',
  'پروکسی تلگرام عمومی است و سهمیهٔ آن مستقل از کاربران VPN است.':'Telegram is a shared public proxy with traffic independent of VPN user quotas.',

@@ -67,6 +67,30 @@ def write(path,text,mode=0o600,group=None):
     path.write_text(text);path.chmod(mode)
     if group: shutil.chown(path,group=group)
 
+def configure_tcp_congestion(mode='auto'):
+    """Persist BBR only after the running kernel accepts it; never restart tunnels."""
+    if mode not in ('auto','bbr','keep'):raise ValueError('Invalid TCP congestion mode')
+    if mode=='keep':return None
+    try:
+        run('modprobe','tcp_bbr')
+    except (OSError,subprocess.CalledProcessError):
+        pass  # A built-in BBR implementation does not need a loadable module.
+    try:
+        available=run('sysctl','-n','net.ipv4.tcp_available_congestion_control').split()
+        if 'bbr' not in available:raise RuntimeError('The running kernel does not provide BBR')
+        run('sysctl','-w','net.ipv4.tcp_congestion_control=bbr')
+        if run('sysctl','-n','net.ipv4.tcp_congestion_control').strip()!='bbr':
+            raise RuntimeError('The running kernel did not activate BBR')
+    except (OSError,subprocess.CalledProcessError,RuntimeError) as error:
+        if mode=='bbr':raise RuntimeError('BBR could not be enabled') from error
+        print('BBR unavailable; keeping the current TCP congestion setting.')
+        return None
+    write('/etc/modules-load.d/sirgsm-bbr.conf','tcp_bbr\n',0o644)
+    write('/etc/sysctl.d/99-sirgsm-tcp.conf',
+          '# SirGSM: TCP congestion control for new server TCP connections.\nnet.ipv4.tcp_congestion_control=bbr\n',0o644)
+    print('TCP congestion control: BBR (persistent; affects new TCP connections).')
+    return 'bbr'
+
 def pki():
     if subprocess.run(['id','sirgsm-openvpn'],capture_output=True).returncode:
         run('useradd','--system','--home','/nonexistent','--shell','/usr/sbin/nologin','sirgsm-openvpn')
@@ -162,7 +186,7 @@ After=network.target
 User=separ
 Group=separ
 WorkingDirectory=/opt/separ/backend
-ExecStart=/opt/sirgsm-runtime/bin/python -m uvicorn app:app --host 127.0.0.1 --port 8099 --proxy-headers --forwarded-allow-ips 127.0.0.1
+ExecStart=/opt/sirgsm-runtime/bin/python -m uvicorn app:app --host 127.0.0.1 --port 8099 --proxy-headers --forwarded-allow-ips 127.0.0.1 --no-access-log
 Restart=always
 RestartSec=2
 UMask=0007
@@ -272,6 +296,7 @@ def main():
     parser.add_argument('--server-ip',required=True)
     parser.add_argument('--domain')
     parser.add_argument('--openvpn-transport',choices=['tcp','udp'])
+    parser.add_argument('--tcp-congestion',choices=['auto','bbr','keep'],default='auto')
     args=parser.parse_args();ip=str(ipaddress.IPv4Address(args.server_ip))
     if not ipaddress.ip_address(ip).is_global:raise ValueError('A public IPv4 address is required')
     if os.geteuid()!=0:raise PermissionError('Run as root')
@@ -433,7 +458,7 @@ pools {
 }
 '''.replace('@IP@',ip)
     write('/etc/swanctl/conf.d/separ.conf',swan)
-    network(iface);services();telegram(ip)
+    network(iface);configure_tcp_congestion(args.tcp_congestion);services();telegram(ip)
     acme=Path('/var/www/separ-acme');acme.mkdir(exist_ok=True);acme.chmod(0o755)
     write('/etc/nginx/sites-available/separ-acme',f'''server {{
  listen 80;
@@ -468,6 +493,7 @@ systemctl try-restart xray
  ssl_certificate_key /etc/letsencrypt/live/sirgsm-ip/privkey.pem;
  ssl_protocols TLSv1.2 TLSv1.3;
  server_tokens off;
+ access_log off;
  client_max_body_size 32k;
  location / {{
   proxy_pass http://127.0.0.1:8099;
