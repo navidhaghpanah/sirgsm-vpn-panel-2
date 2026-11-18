@@ -124,6 +124,18 @@ class PanelTests(unittest.TestCase):
         self.assertEqual(response.status_code,200)
         self.assertEqual(self.client.get('/api/session').status_code,401)
 
+    def test_admin_four_digit_password_and_minimum_length(self):
+        body={'current_password':TEST_PASSWORD,'username':'admin','password':'482'}
+        self.assertEqual(self.client.put('/api/admin',headers=self.csrf,json=body).status_code,422)
+        body['password']='4826'
+        self.assertEqual(self.client.put('/api/admin',headers=self.csrf,json=body).status_code,200)
+        self.assertEqual(self.client.get('/api/session').status_code,401)
+        self.assertEqual(self.client.post('/api/login',json={'username':'admin','password':'4826'}).status_code,200)
+        with common.database() as db:
+            stored=common.get(db,'admin_hash')
+            self.assertNotEqual(stored,'4826')
+            self.assertTrue(common.check_password('4826',stored))
+
     def test_private_subscription_rotation_revocation_and_account_limits(self):
         uid,_=self.user(protocols=['reality','openvpn'])
         folder=common.EXPORTS/uid;folder.mkdir()

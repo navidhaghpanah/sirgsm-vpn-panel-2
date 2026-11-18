@@ -36,7 +36,7 @@ const dictionary={
  'خطا در همگام‌سازی؛ جزئیات در رویدادها نمایش داده شده است.':'Synchronization error. Open Events for details.',
  'بازکردن منو':'Open navigation','روشن':'Light','تیره':'Dark','حساب مدیر':'Admin account',
  'تغییر اطلاعات مدیر':'Change admin credentials','رمز فعلی':'Current password','نام کاربری جدید':'New username','رمز جدید':'New password',
- 'حداقل ۱۶ نویسه؛ همهٔ نشست‌ها پس از تغییر بسته می‌شوند.':'At least 16 characters. Changing credentials signs out all sessions.',
+ 'حداقل ۴ نویسه؛ همهٔ نشست‌ها پس از تغییر بسته می‌شوند.':'At least 4 characters. Changing credentials signs out all sessions.',
  'ذخیره و خروج':'Save & sign out','حمایت پروژه':'Project sponsor',
  'این نام قبلاً استفاده شده است':'This username is already taken.',
  'نام کاربری یا رمز اشتباه است':'Incorrect username or password.',

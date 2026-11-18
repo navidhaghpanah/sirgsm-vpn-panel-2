@@ -55,7 +55,7 @@ root/sudo لازم است. برای مرحلهٔ نصب و ساخت رابط، �
 کنید. نصب‌کننده را پیش از اجرا با دسترسی root بررسی کنید.
 
 ```bash
-sudo bash -c 'set -e; f=$(mktemp); curl -fsSL https://raw.githubusercontent.com/navidhaghpanah/sirgsm-vpn-panel-2/v0.1.4/install.sh -o "$f"; bash "$f" --lang fa; rm -f -- "$f"'
+sudo bash -c 'set -e; f=$(mktemp); curl -fsSL https://raw.githubusercontent.com/navidhaghpanah/sirgsm-vpn-panel-2/v0.1.5/install.sh -o "$f"; bash "$f" --lang fa; rm -f -- "$f"'
 ```
 
 نصب‌کننده ابتدا کامل دانلود می‌شود و سپس اجرا می‌شود. فایل موقت را root می‌سازد.

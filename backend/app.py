@@ -25,7 +25,7 @@ class Login(BaseModel):
 class AdminUpdate(BaseModel):
     current_password: str=Field(max_length=256)
     username: str=Field(min_length=3,max_length=50,pattern=r'^[A-Za-z0-9_.-]+$')
-    password: str=Field(min_length=16,max_length=256)
+    password: str=Field(min_length=4,max_length=256)
 
 class UserInput(BaseModel):
     name: str=Field(min_length=1,max_length=50)
