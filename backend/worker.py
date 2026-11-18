@@ -19,7 +19,7 @@ from pathlib import Path
 
 import psutil
 import vici
-from common import STATE, EXPORTS, PROTOCOLS, active, add_counter, database, event, get, initialize, now, put, validate_ports
+from common import STATE, EXPORTS, PROTOCOLS, active, add_counter, database, event, get, initialize, now, put, validate_ports, validate_server_name
 
 CONFIG=Path('/etc/separ')
 XRAY=Path('/usr/local/etc/xray/config.json')
@@ -110,7 +110,10 @@ def export_user(u,settings):
     if 'trojan' in protocols:
         atomic(folder/'trojan.txt',f'trojan://{u["password"]}@{ip}:{ports["trojan"]}?security=tls&type=tcp&sni={ip}#SirGSM-{u["name"]}\n',0o640)
     if 'vmess' in protocols:
-        data={'v':'2','ps':f'SirGSM-{u["name"]}','add':ip,'port':str(ports['vmess']),'id':u['uuid'],'aid':'0','scy':'auto','net':'ws','type':'none','host':ip,'path':'/sirgsm-vmess','tls':'tls','sni':ip}
+        sni=validate_server_name(settings.get('vmess_sni',ip))
+        port=settings.get('vmess_port') or ports['vmess']
+        if type(port) is not int or not 1<=port<=65535:raise ValueError('Invalid VMess export port')
+        data={'v':'2','ps':f'SirGSM-{u["name"]}','add':ip,'port':str(port),'id':u['uuid'],'aid':'0','scy':'auto','net':'ws','type':'none','host':sni,'path':'/sirgsm-vmess','tls':'tls','sni':sni,'alpn':'http/1.1'}
         atomic(folder/'vmess.txt','vmess://'+base64.b64encode(json.dumps(data).encode()).decode()+'\n',0o640)
 
 def collect_openvpn(db,users):
@@ -243,7 +246,7 @@ def apply(users,settings):
 def tick():
     errors=[]; online=[]
     with database() as db:
-        settings={'reality':get(db,'reality'),'server_ip':get(db,'server_ip'),'ports':validate_ports(get(db,'ports')),'ss_master':get(db,'ss_master')}
+        settings={'reality':get(db,'reality'),'server_ip':get(db,'server_ip'),'ports':validate_ports(get(db,'ports')),'ss_master':get(db,'ss_master'),'vmess_sni':get(db,'vmess_sni',get(db,'server_ip')),'vmess_port':get(db,'vmess_port')}
         users=[dict(u) for u in db.execute('SELECT * FROM users')]
         for u in users: valid_user(u)
         for key,fn in [('reality',lambda:collect_xray(db,users)),('openvpn',lambda:collect_openvpn(db,users)),('ikev2',lambda:collect_ike(db,users))]:

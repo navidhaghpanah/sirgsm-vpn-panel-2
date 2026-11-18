@@ -37,6 +37,15 @@ matching the panel's shared meter. Public user pages expose no admin access.
 | HTTPS admin panel | TCP 8443 | Username/password login |
 | ACME certificate validation | TCP 80 | Challenge responses only |
 
+When a panel domain is configured, new VMess profiles use that domain's verified
+TLS SNI and WebSocket Host on the panel's HTTPS port **8443**. nginx forwards only
+the WebSocket path to a VMess listener bound to `127.0.0.1:10086`; VMess account
+authentication, quotas and expiry still apply. Connection addresses remain the
+server IP to avoid relying on carrier DNS. The original TLS listener on 2083 and
+its IP certificate remain available for existing profiles. Without a domain,
+VMess continues to use the direct IP/TLS listener. Refresh subscriptions after
+changing the transport endpoint. This does not guarantee access on every carrier.
+
 The five-second meter adds upload and download across a user's enabled VPN
 services. Reaching the shared quota or expiry revokes credentials and ends
 sessions. This is an approximate cap: traffic can exceed a limit between polls,
@@ -88,7 +97,7 @@ Review the installer before executing software as root.
 One-line English installer:
 
 ```bash
-sudo bash -c 'set -e; f=$(mktemp); curl -fsSL https://raw.githubusercontent.com/navidhaghpanah/sirgsm-vpn-panel-2/v0.1.5/install.sh -o "$f"; bash "$f" --lang en; rm -f -- "$f"'
+sudo bash -c 'set -e; f=$(mktemp); curl -fsSL https://raw.githubusercontent.com/navidhaghpanah/sirgsm-vpn-panel-2/v0.1.6/install.sh -o "$f"; bash "$f" --lang en; rm -f -- "$f"'
 ```
 
 The download finishes successfully before execution; the temporary file is

@@ -65,6 +65,58 @@ def panel_domain(domain,ip,acme):
         write(ip_site,text.replace(' client_max_body_size',' include /etc/nginx/snippets/sirgsm-canonical.conf;\n client_max_body_size'),0o644)
     run('nginx','-t');run('systemctl','reload','nginx')
     with database() as db:put(db,'settings','public_origin',f'https://{domain}:8443')
+    configure_vmess_domain(domain)
+
+def configure_vmess_domain(domain):
+    from common import validate_server_name
+    domain=validate_server_name(domain)
+    # Keep the IP certificate as well, so previously downloaded profiles work.
+    write('/usr/local/sbin/sirgsm-domain-cert-deploy','''#!/bin/sh
+set -eu
+install -d -m 750 -o root -g xray /usr/local/etc/xray/tls
+install -m 640 -o root -g xray /etc/letsencrypt/live/sirgsm-domain/fullchain.pem /usr/local/etc/xray/tls/domain-fullchain.pem
+install -m 640 -o root -g xray /etc/letsencrypt/live/sirgsm-domain/privkey.pem /usr/local/etc/xray/tls/domain-privkey.pem
+systemctl reload nginx
+systemctl try-restart xray
+''',0o700)
+    for name in ['fullchain.pem','privkey.pem']:
+        target=Path('/usr/local/etc/xray/tls')/('domain-'+name)
+        shutil.copyfile(Path('/etc/letsencrypt/live/sirgsm-domain')/name,target)
+        target.chmod(0o640);shutil.chown(target,group='xray')
+    base=json.loads((CFG/'xray-base.json').read_text())
+    base['inbounds']=[i for i in base['inbounds'] if i.get('tag')!='vmess-panel']
+    for inbound in base['inbounds']:
+        if inbound.get('tag')=='vmess':
+            certs=inbound['streamSettings']['tlsSettings']['certificates']
+            certs[:]=[c for c in certs if c.get('certificateFile')!='/usr/local/etc/xray/tls/domain-fullchain.pem']
+            certs.append({'certificateFile':'/usr/local/etc/xray/tls/domain-fullchain.pem','keyFile':'/usr/local/etc/xray/tls/domain-privkey.pem'})
+    base['inbounds'].append({'tag':'vmess-panel','listen':'127.0.0.1','port':10086,'protocol':'vmess',
+        'settings':{'clients':[]},'streamSettings':{'network':'ws','security':'none','wsSettings':{'path':'/sirgsm-vmess'}}})
+    write(CFG/'xray-base.json',json.dumps(base,indent=2))
+    write('/etc/nginx/snippets/sirgsm-vmess.conf','''location = /sirgsm-vmess {
+ proxy_pass http://127.0.0.1:10086;
+ proxy_http_version 1.1;
+ proxy_set_header Upgrade $http_upgrade;
+ proxy_set_header Connection "upgrade";
+ proxy_set_header Host $host;
+ proxy_read_timeout 3600s;
+ proxy_send_timeout 3600s;
+ proxy_buffering off;
+ access_log off;
+}
+''',0o644)
+    for site in ['separ-panel','sirgsm-domain']:
+        path=Path('/etc/nginx/sites-available')/site
+        text=path.read_text()
+        if 'include /etc/nginx/snippets/sirgsm-vmess.conf;' not in text:
+            write(path,text.replace(' client_max_body_size 32k;',' client_max_body_size 32k;\n include /etc/nginx/snippets/sirgsm-vmess.conf;'),0o644)
+    run('nginx','-t');run('systemctl','reload','nginx')
+    write('/etc/letsencrypt/renewal-hooks/deploy/sirgsm-domain','#!/bin/sh\n[ "$RENEWED_LINEAGE" != /etc/letsencrypt/live/sirgsm-domain ] || /usr/local/sbin/sirgsm-domain-cert-deploy\n',0o700)
+    with database() as db:
+        put(db,'settings','vmess_sni',domain)
+        put(db,'settings','vmess_port',8443)
+        put(db,'settings','applied_signature',None)
+        db.execute('UPDATE users SET provisioned=0 WHERE deleted=0')
 
 def run(*args,**kwargs):
     result=subprocess.run(args,text=True,capture_output=True,check=True,**kwargs)

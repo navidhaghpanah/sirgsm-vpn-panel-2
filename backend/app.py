@@ -146,6 +146,7 @@ def dashboard(request: Request):
         events=[dict(row) for row in db.execute('SELECT * FROM events ORDER BY id DESC LIMIT 80')]
         server=get(db,'server_ip','')
         ports=get(db,'ports',{'reality':443,'openvpn':2053,'ikev2':'500 / 4500','shadowsocks':8388,'trojan':2087,'vmess':2083})
+        ports={**ports,'vmess':get(db,'vmess_port') or ports['vmess']}
     return {'users':users,'health':health,'events':events,'server':server,'ports':ports,'accounting_interval':5}
 
 @app.get('/api/telegram')

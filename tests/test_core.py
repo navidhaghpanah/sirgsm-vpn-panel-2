@@ -124,6 +124,23 @@ class PanelTests(unittest.TestCase):
         self.assertEqual(response.status_code,200)
         self.assertEqual(self.client.get('/api/session').status_code,401)
 
+    def test_vmess_export_uses_domain_sni_with_direct_ip(self):
+        import json
+        import worker
+        uid,_=self.user(protocols=['vmess'])
+        with common.database() as db:user=dict(db.execute('SELECT * FROM users WHERE id=?',(uid,)).fetchone())
+        settings={'server_ip':'203.0.113.10','ports':{'vmess':2083},'vmess_sni':'vpn.example.com','vmess_port':8443}
+        worker.export_user(user,settings)
+        uri=(common.EXPORTS/uid/'vmess.txt').read_text().strip()
+        profile=json.loads(base64.b64decode(uri.split('://',1)[1]))
+        self.assertEqual(profile['add'],'203.0.113.10')
+        self.assertEqual(profile['port'],'8443')
+        self.assertEqual(profile['sni'],'vpn.example.com')
+        self.assertEqual(profile['host'],'vpn.example.com')
+        self.assertEqual(profile['alpn'],'http/1.1')
+        for bad in ['bad\n.example.com','https://example.com','example.com/path','']:
+            with self.assertRaises(ValueError):common.validate_server_name(bad)
+
     def test_admin_four_digit_password_and_minimum_length(self):
         body={'current_password':TEST_PASSWORD,'username':'admin','password':'482'}
         self.assertEqual(self.client.put('/api/admin',headers=self.csrf,json=body).status_code,422)

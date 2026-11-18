@@ -13,12 +13,18 @@ DB = STATE / 'panel.db'
 EXPORTS = Path(os.environ.get('SIRGSM_EXPORTS','/var/lib/separ-exports'))
 PROTOCOLS = ('reality', 'openvpn', 'ikev2', 'shadowsocks', 'trojan', 'vmess')
 
+def validate_server_name(value):
+    import re
+    if not isinstance(value,str) or len(value)>253 or not value or not all(re.fullmatch(r'[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?',part) for part in value.split('.')):
+        raise ValueError('Invalid TLS server name')
+    return value.lower()
+
 def validate_ports(value):
     keys={'reality','openvpn','shadowsocks','trojan','vmess'}
     if not isinstance(value,dict) or set(value)!=keys|{'ikev2'}:
         raise ValueError('Invalid protocol port settings')
     ports={key:value[key] for key in keys}
-    if any(type(port) is not int or not 1<=port<=65535 or port in {22,80,8443,2096,8099,10085,3129} for port in ports.values()):
+    if any(type(port) is not int or not 1<=port<=65535 or port in {22,80,8443,2096,8099,10085,10086,3129} for port in ports.values()):
         raise ValueError('Protocol ports must be safe integer port numbers')
     if len(set(ports.values()))!=len(ports):raise ValueError('Protocol ports must be distinct')
     if value['ikev2']!='500 / 4500':raise ValueError('Invalid IKEv2 port setting')

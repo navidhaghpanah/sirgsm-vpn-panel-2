@@ -58,7 +58,9 @@ def xray_test(user,settings,protocol,folder):
         stream.update(security='tls',tlsSettings={'serverName':ip})
     else:
         out={'protocol':'vmess','settings':{'vnext':[{'address':'127.0.0.1','port':ports[protocol],'users':[{'id':user['uuid'],'security':'auto','alterId':0}]}]}}
-        stream.update(network='ws',security='tls',tlsSettings={'serverName':ip},wsSettings={'path':'/sirgsm-vmess','headers':{'Host':ip}})
+        out['settings']['vnext'][0]['port']=settings.get('vmess_port') or ports[protocol]
+        sni=settings.get('vmess_sni') or ip
+        stream.update(network='ws',security='tls',tlsSettings={'serverName':sni,'alpn':['http/1.1']},wsSettings={'path':'/sirgsm-vmess','headers':{'Host':sni}})
     out['streamSettings']=stream
     config={'log':{'loglevel':'warning'},'inbounds':[{'listen':'127.0.0.1','port':10818,'protocol':'socks','settings':{'udp':True}}],'outbounds':[out]}
     path=folder/'xray.json';path.write_text(json.dumps(config));path.chmod(0o600)
@@ -131,7 +133,7 @@ def main():
         wait_for(lambda:next((u for u in api('/dashboard')['users'] if u['id']==uid and u['provisioned']),None))
         with database() as db:
             user=dict(db.execute('SELECT * FROM users WHERE id=?',(uid,)).fetchone())
-            settings={key:get(db,key) for key in ['server_ip','ports','reality','ss_master']}
+            settings={key:get(db,key) for key in ['server_ip','ports','reality','ss_master','vmess_sni','vmess_port']}
         with tempfile.TemporaryDirectory(prefix='sirgsm-e2e-',dir='/run') as tmp:
             folder=Path(tmp)
             for protocol in ['reality','shadowsocks','trojan','vmess']:xray_test(user,settings,protocol,folder)
