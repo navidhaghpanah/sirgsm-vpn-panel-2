@@ -106,14 +106,14 @@ def export_user(u,settings):
     if 'shadowsocks' in protocols:
         sskey=base64.b64encode(hashlib.sha256(u['password'].encode()).digest()).decode()
         auth=base64.urlsafe_b64encode(('2022-blake3-aes-256-gcm:'+settings['ss_master']+':'+sskey).encode()).decode().rstrip('=')
-        atomic(folder/'shadowsocks.txt',f'ss://{auth}@{ip}:{ports["shadowsocks"]}#SirGSM-{u["name"]}\n',0o640)
+        atomic(folder/'shadowsocks.txt',f'ss://{auth}@{ip}:{ports["shadowsocks"]}#SirGSM-{u["name"]}-Shadowsocks\n',0o640)
     if 'trojan' in protocols:
-        atomic(folder/'trojan.txt',f'trojan://{u["password"]}@{ip}:{ports["trojan"]}?security=tls&type=tcp&sni={ip}#SirGSM-{u["name"]}\n',0o640)
+        atomic(folder/'trojan.txt',f'trojan://{u["password"]}@{ip}:{ports["trojan"]}?security=tls&type=tcp&sni={ip}#SirGSM-{u["name"]}-Trojan\n',0o640)
     if 'vmess' in protocols:
         sni=validate_server_name(settings.get('vmess_sni',ip))
         port=settings.get('vmess_port') or ports['vmess']
         if type(port) is not int or not 1<=port<=65535:raise ValueError('Invalid VMess export port')
-        data={'v':'2','ps':f'SirGSM-{u["name"]}','add':ip,'port':str(port),'id':u['uuid'],'aid':'0','scy':'auto','net':'ws','type':'none','host':sni,'path':'/sirgsm-vmess','tls':'tls','sni':sni,'alpn':'http/1.1'}
+        data={'v':'2','ps':f'SirGSM-{u["name"]}-VMess','add':ip,'port':str(port),'id':u['uuid'],'aid':'0','scy':'aes-128-gcm','net':'ws','type':'none','host':sni,'path':'/sirgsm-vmess','tls':'tls','sni':sni,'alpn':'http/1.1'}
         atomic(folder/'vmess.txt','vmess://'+base64.b64encode(json.dumps(data).encode()).decode()+'\n',0o640)
 
 def collect_openvpn(db,users):

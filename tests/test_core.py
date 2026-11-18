@@ -138,6 +138,7 @@ class PanelTests(unittest.TestCase):
         self.assertEqual(profile['sni'],'vpn.example.com')
         self.assertEqual(profile['host'],'vpn.example.com')
         self.assertEqual(profile['alpn'],'http/1.1')
+        self.assertEqual(profile['scy'],'aes-128-gcm')
         for bad in ['bad\n.example.com','https://example.com','example.com/path','']:
             with self.assertRaises(ValueError):common.validate_server_name(bad)
 

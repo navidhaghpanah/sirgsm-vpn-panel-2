@@ -57,7 +57,7 @@ def xray_test(user,settings,protocol,folder):
         out={'protocol':'trojan','settings':{'servers':[{'address':'127.0.0.1','port':ports[protocol],'password':user['password']}]}}
         stream.update(security='tls',tlsSettings={'serverName':ip})
     else:
-        out={'protocol':'vmess','settings':{'vnext':[{'address':'127.0.0.1','port':ports[protocol],'users':[{'id':user['uuid'],'security':'auto','alterId':0}]}]}}
+        out={'protocol':'vmess','settings':{'vnext':[{'address':'127.0.0.1','port':ports[protocol],'users':[{'id':user['uuid'],'security':'aes-128-gcm','alterId':0}]}]}}
         out['settings']['vnext'][0]['port']=settings.get('vmess_port') or ports[protocol]
         sni=settings.get('vmess_sni') or ip
         stream.update(network='ws',security='tls',tlsSettings={'serverName':sni,'alpn':['http/1.1']},wsSettings={'path':'/sirgsm-vmess','headers':{'Host':sni}})
