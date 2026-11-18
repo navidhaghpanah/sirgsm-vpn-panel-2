@@ -135,6 +135,9 @@ class PanelTests(unittest.TestCase):
         self.assertEqual(guest.post(f'/api/users/{uid}/share').status_code,401)
         self.assertEqual(self.client.post(f'/api/users/{uid}/share').status_code,403)
         share=self.client.post(f'/api/users/{uid}/share',headers=self.csrf).json()
+        with common.database() as db:common.put(db,'settings','public_origin','https://vpn.example.com:8443')
+        canonical=self.client.get(f'/api/users/{uid}/share').json()
+        self.assertEqual(canonical['origin'],'https://vpn.example.com:8443')
         path=share['subscription_path'];token=path.rsplit('/',1)[1]
         result=guest.get(path)
         self.assertEqual(result.status_code,200)

@@ -7,7 +7,7 @@ import secrets
 
 from fastapi import APIRouter,HTTPException,Request,Response
 from fastapi.responses import FileResponse
-from common import EXPORTS,active,database,event,reason
+from common import EXPORTS,active,database,event,reason,get
 
 KINDS={'reality':'txt','openvpn':'ovpn','ikev2':'txt','ios':'mobileconfig','ca':'cer','shadowsocks':'txt','trojan':'txt','vmess':'txt'}
 XRAY=('reality','shadowsocks','trojan','vmess')
@@ -32,7 +32,8 @@ def token_user(token):
     return row
 
 def share_paths(token):
-    return {'page_path':'/u/'+token,'subscription_path':'/sub/'+token}
+    with database() as db:origin=get(db,'public_origin','')
+    return {'page_path':'/u/'+token,'subscription_path':'/sub/'+token,'origin':origin}
 
 def make_router(authenticate,dist):
     router=APIRouter()

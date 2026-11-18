@@ -51,12 +51,20 @@ def panel_domain(domain,ip,acme):
     run('nginx','-t');run('systemctl','reload','nginx')
     run('/opt/sirgsm-certbot/bin/certbot','certonly','--webroot','-w',str(acme),'-d',domain,'--cert-name','sirgsm-domain','--non-interactive','--agree-tos','--register-unsafely-without-email')
     panel=Path('/etc/nginx/sites-available/separ-panel').read_text()
+    panel=panel.replace(' include /etc/nginx/snippets/sirgsm-canonical.conf;\n','')
     panel=panel.replace(f'server_name {ip};',f'server_name {domain};').replace('/live/sirgsm-ip/','/live/sirgsm-domain/')
     current=Path('/etc/nginx/sites-available/sirgsm-domain').read_text()
     write('/etc/nginx/sites-available/sirgsm-domain',current+panel,0o644)
     run('nginx','-t');run('systemctl','reload','nginx')
     write('/etc/letsencrypt/renewal-hooks/deploy/sirgsm-domain','#!/bin/sh\n[ "$RENEWED_LINEAGE" != /etc/letsencrypt/live/sirgsm-domain ] || systemctl reload nginx\n',0o700)
     write(CFG/'panel-domain',domain+'\n')
+    write('/etc/nginx/snippets/sirgsm-canonical.conf',f'location = / {{ return 302 https://{domain}:8443/; }}\n',0o644)
+    ip_site=Path('/etc/nginx/sites-available/separ-panel')
+    text=ip_site.read_text()
+    if 'include /etc/nginx/snippets/sirgsm-canonical.conf;' not in text:
+        write(ip_site,text.replace(' client_max_body_size',' include /etc/nginx/snippets/sirgsm-canonical.conf;\n client_max_body_size'),0o644)
+    run('nginx','-t');run('systemctl','reload','nginx')
+    with database() as db:put(db,'settings','public_origin',f'https://{domain}:8443')
 
 def run(*args,**kwargs):
     result=subprocess.run(args,text=True,capture_output=True,check=True,**kwargs)
